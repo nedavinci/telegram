@@ -1,0 +1,10 @@
+telegrams bot to create your library and read books
+
+config file - config.ini:
+[BOT]
+token=<your token telegram bot>
+
+
+Структура папок проекта:
+    * lib - библиотеки пользователей, в котором имя пользователя папки
+    * db  - БД с таблицами пользователей и книг

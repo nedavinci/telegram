@@ -44,12 +44,12 @@ class iReadLibTelegramBot:
         self.bot.dispatcher.add_handler(handlerDocument)
 
         # регистрация обработчика используя паттерн срабатывания
-        self.bot.dispatcher.add_handler(CallbackQueryHandler(self.about2,pattern="^about_bot$")) 
+        self.bot.dispatcher.add_handler(CallbackQueryHandler(self.about,pattern="^about_bot$")) 
         # регистрация обработчика для inline клавиатуры
         self.bot.dispatcher.add_handler(CallbackQueryHandler(self.inlinebutton))   
         # регистрация команд     
         self.reg_handler("start",self.start)
-        self.reg_handler("about",self.about2)
+        self.reg_handler("about",self.about)
         self.reg_handler("docs",self.docs)
 
     # обработка получение документов от пользователя (сохранение в указанной папке)

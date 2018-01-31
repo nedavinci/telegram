@@ -4,6 +4,8 @@
 import sqlite3
 import os
 
+
+
 class DbLib:
     def __init__(self,namefile):
         if not os.path.exists(namefile):
@@ -13,11 +15,11 @@ class DbLib:
             self.c.execute('''CREATE TABLE users
                         (id integer, nameuser text, role text)''')
             self.c.execute('''CREATE TABLE books
-                        (id integer, namebook text, path text, currentpage integer, description text)''')
+                        (id integer, author text, namebook text, pathbook text, currentpage integer, description text)''')
         else:
             self.conn = sqlite3.connect(namefile)
             self.c = self.conn.cursor()
-        
+    
     # методы для работы с таблицей User
     def add_user(self,nameuser,role):
         """
@@ -70,30 +72,62 @@ class DbLib:
         else:
             return True
 
+    def get_id_user(self,nameuser):
+        """
+            получение id пользователя по имени, если пользователя нет, то возвращается None
+        """
+        if not self.is_user(nameuser):
+            return None
+        self.c.execute("SELECT id FROM users WHERE nameuser='{0}'".format(nameuser))
+        # Получаем результат сделанного запроса
+        id = self.c.fetchall()
+        print(id[0][0])
+        if id[0][0] is None:
+            return None
+        else:
+            id = int(id[0][0])
+        return id
+
     # END методы для работы с таблицей User
 
     # методы для работы с таблицей Books
-    def add_book(self):
-        pass
+    def add_book(self,nameuser,book):
+        """
+            добавляем книгу пользователю nameuser. 
+            book - это словарь с ключами namebook(название книги) , pathbook(путь до книги на диске) ,currentpage (текущая страница),  author - автор книги
+        """
+        id = self.get_id_user(nameuser)
+        if id is None:
+            return False
+        
+        str = "INSERT INTO books (id, author, namebook, pathbook, currentpage, description) VALUES ({0},'{1}','{2}','{3}',{4},'{5}')".format(id,book["author"],book["book"],book["pathbook"],book["currentpage"],book["description"])
+        #print(str)
+        self.c.execute(str)
+        self.conn.commit()
+        
+        return True
 
-    def del_book(self):
+    def is_namebook(self,namebook):
+        """
+            возвращает True - если название книги существует
+        """
+        self.c.execute("SELECT namebook  FROM books WHERE namebook='{}'".format(namebook))
+        user = self.c.fetchall()
+        if user == []:
+            return False
+        else:
+            return True
+
+    def del_book(self,namebook,author):
         pass
     
-    def edit_book(self):
+    def edit_book(self,book):
+        """
+            book - это словарь с ключами namebook(название книги) , pathbook(путь до книги на диске) ,currentpage (текущая страница),  author - автор книги
+        """
         pass
     # END методы для работы с таблицей Books
 
     def closedb(self):
         self.conn.close()
 
-"""
-# Insert a row of data
-c.execute("INSERT INTO stocks VALUES ('2006-01-05','BUY','RHAT',100,35.14)")
-
-# Save (commit) the changes
-
-
-# We can also close the connection if we are done with it.
-# Just be sure any changes have been committed or they will be lost.
-
-"""

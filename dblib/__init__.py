@@ -20,7 +20,11 @@ class DbLib:
         
     # методы для работы с таблицей User
     def add_user(self,nameuser,role):
-        # Делаем SELECT запрос к базе данных, используя обычный SQL-синтаксис
+        """
+            добавляем пользователя, проверяем есть ли данный пользователь в таблице Users
+        """
+        if self.is_user(nameuser):
+            return False
         self.c.execute("SELECT MAX(id) FROM users")
         # Получаем результат сделанного запроса
         id = self.c.fetchall()
@@ -34,17 +38,30 @@ class DbLib:
         #print(str)
         self.c.execute(str)
         self.conn.commit()
+        return True
 
-    def del_user(self,nameuser):        
-        self.c.execute("SELECT nameuser  FROM users WHERE nameuser='{}'".format(nameuser))
-        q = self.c.fetchall()
-         #self.conn.commit()
+    def del_user(self,nameuser): 
+        """
+            удаление информации по пользователю из таблицы users
+        """
+        command = "DELETE FROM users WHERE nameuser = '{0}'".format(nameuser)       
+        self.c.execute(command)
+        self.conn.commit()
+        return True
     
-    def edit_user(self):
-        pass
+    def edit_user_role(self,nameuser,role):
+        """
+            редактирование роли у пользователя nameuser
+        """
+        command = "UPDATE users SET role='{0}' WHERE nameuser='{1}'".format(role,nameuser)
+        self.c.execute(command)
+        self.conn.commit()
+        return True
     
-    # поиск пользователя в базе пользователей 
     def is_user(self,nameuser):
+        """
+            возвращает True - если пользователь существует
+        """
         self.c.execute("SELECT nameuser  FROM users WHERE nameuser='{}'".format(nameuser))
         user = self.c.fetchall()
         #print(user)

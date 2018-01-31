@@ -3,3 +3,6 @@ I must do:
 * отправка файлов пользователю
 * получение файлов от пользователя
 * 
+
+Ошибка при добавлении в БД user:
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread.The object was created in thread id 140613762299200 and this is thread id 140613508232960

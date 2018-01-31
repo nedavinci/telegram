@@ -88,6 +88,20 @@ class DbLib:
             id = int(id[0][0])
         return id
 
+    def get_all_username(self):
+        """
+            возвращает всех пользователей из таблицы Users
+        """
+        result=[]
+        self.c.execute("SELECT nameuser  FROM users")
+        users = self.c.fetchall()
+        #print(users)
+        for user in users:
+            if user[0] is not None:
+                result.append(user[0])
+        return result
+        
+
     # END методы для работы с таблицей User
 
     # методы для работы с таблицей Books
@@ -101,7 +115,7 @@ class DbLib:
             return False
         
         str = "INSERT INTO books (id, author, namebook, pathbook, currentpage, description) VALUES ({0},'{1}','{2}','{3}',{4},'{5}')".format(id,book["author"],book["book"],book["pathbook"],book["currentpage"],book["description"])
-        #print(str)
+        #git add print(str)
         self.c.execute(str)
         self.conn.commit()
         

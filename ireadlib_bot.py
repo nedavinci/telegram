@@ -2,20 +2,27 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Conversa
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config import Config
 import logging
-
-ABOUT = range(1)
+from dblib import DbLib
 
 #------------- Работа с пользователями
-allow_users = [{"username":"Oilnur"}]
+allow_users = []
+admin_users = ["Oilnur"]
 
-admin_users = [{"username":"Oilnur"}]
+
+def add_admin_user(db,users):
+    """
+        добавление пользователей администратором в БД
+    """
+    for user in users:
+        db.add_user(user,"administartor")
+    return True
 
 # проверка на разрешенного пользователя
 def is_allow_user(func):
     def wrapped(*args, **kwargs):
         nameuser = args[2].message.from_user.username        
         for user in allow_users:
-            if user["username"]==nameuser:
+            if user==nameuser:
                 return func(*args, **kwargs)
         args[2].message.reply_text(text="Доступ запрещен. Обратитесь к администратору.")
         return False
@@ -33,6 +40,14 @@ def is_admin_user(func):
     return wrapped
 #------------- END Работа с пользователями
 
+# --- Подготовительные работы с БД
+db = DbLib("db/library.db")
+add_admin_user(db,admin_users)
+# db.add_user("andrey","user")
+allow_users = db.get_all_username()
+# --- END Подготовительные работы с БД
+
+
 class iReadLibTelegramBot:
     def __init__(self, token=None,level_loggining=logging.INFO):
         logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -49,8 +64,20 @@ class iReadLibTelegramBot:
         self.bot.dispatcher.add_handler(CallbackQueryHandler(self.inlinebutton))   
         # регистрация команд     
         self.reg_handler("start",self.start)
-        self.reg_handler("about",self.about)
-        self.reg_handler("docs",self.docs)
+        self.reg_handler("help",self.about)
+        # команды администратора
+        self.reg_handler("adduser",self.add_user, True)
+        # END команды администратора
+        # END регистрация команд
+
+    def add_user(self,bot,update,**args):
+        args_list=args["args"]
+        if not (len(args_list)>0):
+            update.message.reply_text("Формат команды: \\adduser имя_пользователя")
+            return False
+        db.add_user(args_list[0],"user")
+        update.message.reply_text("Пользователь {} добавлен в базу.".format(args_list[0]))
+        
 
     # обработка получение документов от пользователя (сохранение в указанной папке)
     def get_book_to_lib(self,bot,update):
@@ -59,32 +86,26 @@ class iReadLibTelegramBot:
         newFile = bot.get_file(file_id)
         newFile.download('files/savedoc/'+filename)
 
-    def reg_handler(self, command=None,hand=None):
+    def reg_handler(self, command=None,hand=None,pass_args=False):
         """ регистрация команд которые обрабатывает бот """
         if (command is None) or (hand is None):
             return
-        self.bot.dispatcher.add_handler(CommandHandler(command, hand))
+        self.bot.dispatcher.add_handler(CommandHandler(command, hand,pass_args=pass_args))
         
-
     def about(self, bot, update):
         """ сообщает какие есть возможности у бота """
-        update.message.reply_text("Здесь перечислены, то что я умею.")
+        update.message.reply_text("Если вы администратор бота, то вам доступны команды для управления пользователями.")
     
 
     @is_allow_user
     def start(self, bot, update):
-        """   
-        sender = update.message.from_user.username
-        if not is_allow_user(sender): 
-            update.message.reply_text("Доступ запрещен, обратитесь к администратору бота.")   
-            return
         """
         keyboard = [[InlineKeyboardButton("Help", callback_data="about_bot"),
                  InlineKeyboardButton("Settings", callback_data='settings')],
                 [InlineKeyboardButton("Яndex", url='http://ya.ru')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        update.message.reply_text('Hello {}! I\'m glad to see you! '.format(update.message.from_user.first_name), reply_markup=reply_markup)
+        """
+        update.message.reply_text('Добро пожаловать, {}! Я бот который поможет вам вести свою библиотеку и позволит вам читать книги. '.format(update.message.from_user.first_name)) #, reply_markup=reply_markup)
         
 
     def docs(self, bot, update):
@@ -108,6 +129,7 @@ class iReadLibTelegramBot:
         self.bot.start_polling()
         self.bot.idle()
 
+        
 
 cfg = Config("config.ini")
 tgbot = iReadLibTelegramBot(cfg.token,logging.DEBUG)

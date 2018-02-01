@@ -67,6 +67,7 @@ class iReadLibTelegramBot:
         self.reg_handler("help",self.about)
         # команды администратора
         self.reg_handler("adduser",self.add_user, True)
+        self.reg_handler("lsuser",self.ls_user)
         # END команды администратора
         # END регистрация команд
 
@@ -77,6 +78,13 @@ class iReadLibTelegramBot:
             return False
         db.add_user(args_list[0],"user")
         update.message.reply_text("Пользователь {} добавлен в базу.".format(args_list[0]))
+
+    def ls_user(self,bot,update):
+        all_user = db.get_all_username()
+        str=""
+        for s in all_user:
+            str=str+s+"\n"
+        update.message.reply_text("Список всех пользователей: \n{}".format(str))
         
 
     # обработка получение документов от пользователя (сохранение в указанной папке)

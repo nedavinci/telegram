@@ -9,7 +9,7 @@ import os
 class DbLib:
     def __init__(self,namefile):
         if not os.path.exists(namefile):
-            self.conn = sqlite3.connect(namefile)
+            self.conn = sqlite3.connect(namefile, check_same_thread=False)
             self.c = self.conn.cursor()
             # Create table                        
             self.c.execute('''CREATE TABLE users
@@ -17,7 +17,7 @@ class DbLib:
             self.c.execute('''CREATE TABLE books
                         (id integer, author text, namebook text, pathbook text, currentpage integer, description text)''')
         else:
-            self.conn = sqlite3.connect(namefile)
+            self.conn = sqlite3.connect(namefile, check_same_thread=False)
             self.c = self.conn.cursor()
     
     # методы для работы с таблицей User

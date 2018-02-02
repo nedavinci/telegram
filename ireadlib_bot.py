@@ -68,6 +68,7 @@ class iReadLibTelegramBot:
         # команды администратора
         self.reg_handler("adduser",self.add_user, True)
         self.reg_handler("lsuser",self.ls_user)
+        self.reg_handler("deluser",self.del_user, True)
         # END команды администратора
         # END регистрация команд
 
@@ -85,6 +86,17 @@ class iReadLibTelegramBot:
         for s in all_user:
             str=str+s+"\n"
         update.message.reply_text("Список всех пользователей: \n{}".format(str))
+    
+    def del_user(self,bot,update, **args):
+        args_list=args["args"]
+        if not (len(args_list)>0):
+            update.message.reply_text("Формат команды: \\deluser имя_пользователя")
+            return False
+        db.del_user(args_list[0])
+        self.ls_user(bot, update)
+        return True
+
+
         
 
     # обработка получение документов от пользователя (сохранение в указанной папке)

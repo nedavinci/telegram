@@ -47,21 +47,45 @@ add_admin_user(db,admin_users)
 allow_users = db.get_all_username()
 # --- END Подготовительные работы с БД
 
+NAMEBOOK, AUTHORBOOK, BOOK = range(3)
 
 class iReadLibTelegramBot:
+
+    
+
+ 
+
     def __init__(self, token=None,level_loggining=logging.INFO):
         logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             level=level_loggining)
         self.bot = Updater(token)
+
+        # добавление handler диалога на добавление книги в библиотеку
+        conv_handler_addbook = ConversationHandler(
+            entry_points=[CommandHandler('addbook', self.add_book)],
+
+            states={
+                NAMEBOOK: [MessageHandler(Filters.text, self.add_namebook)],
+
+                BOOK: [MessageHandler(Filters.document, self.add_book_document)],
+
+                AUTHORBOOK: [MessageHandler(Filters.text, self.add_author)]
+            },
+
+            fallbacks=[CommandHandler('cancel', self.cancel)]
+        )
        
         # обработка добавления книг в библиотеку
-        handlerDocument = MessageHandler(filters = Filters.document, callback=self.get_book_to_lib)
-        self.bot.dispatcher.add_handler(handlerDocument)
-
+        #handlerDocument = MessageHandler(filters = Filters.document, callback=self.get_book_to_lib)
+        #self.bot.dispatcher.add_handler(handlerDocument)
+        # регистрация обработки ошибок
+        self.bot.dispatcher.add_error_handler(self.error)
         # регистрация обработчика используя паттерн срабатывания
         self.bot.dispatcher.add_handler(CallbackQueryHandler(self.about,pattern="^about_bot$")) 
         # регистрация обработчика для inline клавиатуры
         self.bot.dispatcher.add_handler(CallbackQueryHandler(self.inlinebutton))   
+        # регистрация диалоговых обработчиков
+        self.bot.dispatcher.add_handler(conv_handler_addbook)
         # регистрация команд     
         self.reg_handler("start",self.start)
         self.reg_handler("help",self.about)
@@ -72,6 +96,41 @@ class iReadLibTelegramBot:
         # END команды администратора
         # END регистрация команд
 
+
+    # обработчики диалога addbook
+    def add_book(self,bot,update, **args):
+        bot.send_message(chat_id=update.message.chat_id, text = "Введите название книги.\nЕсли хотите отменить процесс добавления книги в библиотеку выполните команду /cancel")
+        return NAMEBOOK
+    
+    def add_namebook(self,bot,update):
+        nameuser = update.message.from_user.username
+        print("Имя пользователя: ",nameuser)
+        db.get_id_user(nameuser)
+        print("ID пользователя: ",db.get_id_user(nameuser))
+        bot.send_message(chat_id=update.message.chat_id, text = "Введите автора книги.\nЕсли хотите отменить процесс добавления книги в библиотеку выполните команду /cancel")
+        return AUTHORBOOK
+    
+    def add_author(self,bot,update):
+        bot.send_message(chat_id=update.message.chat_id, text = "Загрузите книгу.\nЕсли хотите отменить процесс добавления книги в библиотеку выполните команду /cancel")
+        return BOOK
+    
+    def add_book_document(self,bot,update):
+        """
+        file_id = update.message.document.file_id
+        filename = update.message.document.file_name
+        newFile = bot.get_file(file_id)
+        newFile.download('files/savedoc/'+filename)
+        """
+        bot.send_message(chat_id=update.message.chat_id, text = "Книга загружена.")
+        return ConversationHandler.END
+
+    def cancel(self, bot, update):
+        # здесь нужно удалить строку в БД, так как отменена задача на добавление книги
+        update.message.reply_text('Вы прервали добавление новой книги.')
+        return ConversationHandler.END
+    # END обработчики диалога addbook
+
+     # обработчики командов администратора
     def add_user(self,bot,update,**args):
         args_list=args["args"]
         if not (len(args_list)>0):
@@ -95,16 +154,17 @@ class iReadLibTelegramBot:
         db.del_user(args_list[0])
         self.ls_user(bot, update)
         return True
-
+     # END обработчики командов администратора
 
         
-
+    """
     # обработка получение документов от пользователя (сохранение в указанной папке)
     def get_book_to_lib(self,bot,update):
         file_id = update.message.document.file_id
         filename = update.message.document.file_name
         newFile = bot.get_file(file_id)
         newFile.download('files/savedoc/'+filename)
+    """
 
     def reg_handler(self, command=None,hand=None,pass_args=False):
         """ регистрация команд которые обрабатывает бот """
@@ -142,7 +202,11 @@ class iReadLibTelegramBot:
             bot.edit_message_text(text="{}".format(query.data),
                                 chat_id=query.message.chat_id,
                                 message_id=query.message.message_id) 
-          
+
+    def error(bot, update, error):
+        """Log Errors caused by Updates."""
+        logger.warning('Update "%s" caused error "%s"', update, error)
+
     def run(self):
         """ запуск бота """   
         logging.debug("Start telegram bot")  

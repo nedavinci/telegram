@@ -92,6 +92,7 @@ class iReadLibTelegramBot:
         self.reg_handler("lsuser",self.ls_user)
         self.reg_handler("deluser",self.del_user, True)
         # END команды администратора
+        self.reg_handler("lsbook",self.ls_book)
         # END регистрация команд
 
 
@@ -139,6 +140,18 @@ class iReadLibTelegramBot:
         update.message.reply_text('Вы прервали добавление новой книги.')
         return ConversationHandler.END
     # END обработчики диалога addbook
+
+
+    def ls_book(self, bot, update):
+        nameuser = update.message.from_user.username
+        books = db.get_all_book(nameuser)
+        if books == []:
+            update.message.reply_text('Библиотека пуста.\nМожете добавить книгу командой /addbook')            
+        else:
+            result=""
+            for b in books:
+                result = result + b[0]+b[1]+"\n"
+            update.message.reply_text('Список книг текущего пользователя:\n{0}'.format(result))        
 
     # обработчики командов администратора
     @is_admin_user

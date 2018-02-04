@@ -90,7 +90,7 @@ class DbLib:
 
     def get_all_username(self):
         """
-            возвращает всех пользователей из таблицы Users
+            возвращает всех пользователей из таблицы Users, возвращает название и автор книги
         """
         result=[]
         self.c.execute("SELECT nameuser  FROM users")
@@ -105,6 +105,19 @@ class DbLib:
     # END методы для работы с таблицей User
 
     # методы для работы с таблицей Books
+    def get_all_book(self, nameuser):
+        """
+            получение списка книг пользователя nameuser
+        """
+        result =[]
+        id_user = self.get_id_user(nameuser)
+        if id_user is None:
+            return result
+        str_command = "SELECT namebook, author  FROM books WHERE id={0}".format(id_user)
+        self.c.execute(str_command)
+        result = self.c.fetchall()
+        return result
+
     def add_book(self,nameuser,book):
         """
             добавляем книгу пользователю nameuser. 
@@ -113,7 +126,6 @@ class DbLib:
         id = self.get_id_user(nameuser)
         if id is None:
             return False
-        
         str = "INSERT INTO books (id, author, namebook, pathbook, currentpage, description) VALUES ({0},'{1}','{2}','{3}',{4},'{5}')".format(id,book["author"],book["book"],book["pathbook"],book["currentpage"],book["description"])
         #git add print(str)
         self.c.execute(str)

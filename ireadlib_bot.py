@@ -33,7 +33,7 @@ def is_admin_user(func):
     def wrapped(*args, **kwargs):
         nameuser = args[2].message.from_user.username        
         for user in admin_users:
-            if user["username"]==nameuser:
+            if user==nameuser:
                 return func(*args, **kwargs)
         args[2].message.reply_text(text="Доступ запрещен. Обратитесь к администратору.")
         return False
@@ -51,14 +51,12 @@ NAMEBOOK, AUTHORBOOK, BOOK = range(3)
 
 class iReadLibTelegramBot:
 
-    
-
- 
-
     def __init__(self, token=None,level_loggining=logging.INFO):
         logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             level=level_loggining)
         self.bot = Updater(token)
+
+        self.newbook = dict()  # промежуточные данные для добавления книги
 
         # добавление handler диалога на добавление книги в библиотеку
         conv_handler_addbook = ConversationHandler(
@@ -98,20 +96,26 @@ class iReadLibTelegramBot:
 
 
     # обработчики диалога addbook
+    @is_allow_user
     def add_book(self,bot,update, **args):
-        bot.send_message(chat_id=update.message.chat_id, text = "Введите название книги.\nЕсли хотите отменить процесс добавления книги в библиотеку выполните команду /cancel")
+        bot.send_message(chat_id=update.message.chat_id, text = "Введите название книги.\n/cancel - отмена операции.")
         return NAMEBOOK
     
     def add_namebook(self,bot,update):
         nameuser = update.message.from_user.username
-        print("Имя пользователя: ",nameuser)
-        db.get_id_user(nameuser)
-        print("ID пользователя: ",db.get_id_user(nameuser))
-        bot.send_message(chat_id=update.message.chat_id, text = "Введите автора книги.\nЕсли хотите отменить процесс добавления книги в библиотеку выполните команду /cancel")
+        namebook = update.message.text  
+        book ={"author":"","book": "", "pathbook":"","currentpage":0,"description":""}
+        book["book"] = namebook
+        self.newbook[nameuser] =  book        
+        bot.send_message(chat_id=update.message.chat_id, text = "Введите автора книги.\n/cancel - отмена операции.")
         return AUTHORBOOK
     
     def add_author(self,bot,update):
-        bot.send_message(chat_id=update.message.chat_id, text = "Загрузите книгу.\nЕсли хотите отменить процесс добавления книги в библиотеку выполните команду /cancel")
+        nameuser = update.message.from_user.username
+        authorbook = update.message.text  
+        #book ={"author":"","book": "", "pathbook":"","currentpage":0,"description":""}        
+        self.newbook[nameuser]["author"] = authorbook
+        bot.send_message(chat_id=update.message.chat_id, text = "Загрузите книгу.\n/cancel - отмена операции.")
         return BOOK
     
     def add_book_document(self,bot,update):
@@ -121,16 +125,24 @@ class iReadLibTelegramBot:
         newFile = bot.get_file(file_id)
         newFile.download('files/savedoc/'+filename)
         """
+        nameuser = update.message.from_user.username        
+        self.newbook[nameuser]["pathbook"] = "/home"
+        db.add_book(nameuser, self.newbook[nameuser])
+        self.newbook[nameuser]=None
         bot.send_message(chat_id=update.message.chat_id, text = "Книга загружена.")
         return ConversationHandler.END
 
     def cancel(self, bot, update):
         # здесь нужно удалить строку в БД, так как отменена задача на добавление книги
+        nameuser = update.message.from_user.username
+        self.newbook[nameuser]=None
         update.message.reply_text('Вы прервали добавление новой книги.')
         return ConversationHandler.END
     # END обработчики диалога addbook
 
-     # обработчики командов администратора
+    # обработчики командов администратора
+    @is_admin_user
+    @is_allow_user    
     def add_user(self,bot,update,**args):
         args_list=args["args"]
         if not (len(args_list)>0):
@@ -139,13 +151,17 @@ class iReadLibTelegramBot:
         db.add_user(args_list[0],"user")
         update.message.reply_text("Пользователь {} добавлен в базу.".format(args_list[0]))
 
+    @is_admin_user
+    @is_allow_user   
     def ls_user(self,bot,update):
         all_user = db.get_all_username()
         str=""
         for s in all_user:
             str=str+s+"\n"
         update.message.reply_text("Список всех пользователей: \n{}".format(str))
-    
+
+    @is_admin_user
+    @is_allow_user       
     def del_user(self,bot,update, **args):
         args_list=args["args"]
         if not (len(args_list)>0):
@@ -171,7 +187,8 @@ class iReadLibTelegramBot:
         if (command is None) or (hand is None):
             return
         self.bot.dispatcher.add_handler(CommandHandler(command, hand,pass_args=pass_args))
-        
+
+    @is_allow_user        
     def about(self, bot, update):
         """ сообщает какие есть возможности у бота """
         update.message.reply_text("Если вы администратор бота, то вам доступны команды для управления пользователями.")

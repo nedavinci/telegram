@@ -2,7 +2,34 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Conversa
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config import Config
 import logging
+import os
 from dblib import DbLib
+
+
+#---- сервисные функции
+
+def split_txt_file(filename, kol_slov):
+    """
+        разбиение txt файла на так называемые страницы, то есть каждая страница вмещает вот такое кол-во строк: kol_slov
+        название страниц от 1 до N
+    """
+    kol_strok = 0
+    tek_filename = 1
+    buffer = ""
+    directory = os.path.dirname(filename)
+    with open(filename,"r") as f:
+        for line in f:
+            if kol_strok == kol_slov:
+                with open(directory+"/"+str(tek_filename)+".txt","w") as ff:
+                    ff.write(buffer)
+                kol_strok = 0
+                buffer = ""
+                tek_filename = tek_filename + 1
+            else:
+                buffer = buffer + line
+                kol_strok = kol_strok + 1
+#---- END сервисные функции
+
 
 #------------- Работа с пользователями
 allow_users = []
@@ -41,6 +68,8 @@ def is_admin_user(func):
 #------------- END Работа с пользователями
 
 # --- Подготовительные работы с БД
+if not os.path.exists("db"):
+    os.mkdir("db")
 db = DbLib("db/library.db")
 add_admin_user(db,admin_users)
 # db.add_user("andrey","user")
@@ -61,15 +90,11 @@ class iReadLibTelegramBot:
         # добавление handler диалога на добавление книги в библиотеку
         conv_handler_addbook = ConversationHandler(
             entry_points=[CommandHandler('addbook', self.add_book)],
-
             states={
                 NAMEBOOK: [MessageHandler(Filters.text, self.add_namebook)],
-
                 BOOK: [MessageHandler(Filters.document, self.add_book_document)],
-
                 AUTHORBOOK: [MessageHandler(Filters.text, self.add_author)]
             },
-
             fallbacks=[CommandHandler('cancel', self.cancel)]
         )
        
@@ -91,6 +116,7 @@ class iReadLibTelegramBot:
         self.reg_handler("adduser",self.add_user, True)
         self.reg_handler("lsuser",self.ls_user)
         self.reg_handler("deluser",self.del_user, True)
+        self.reg_handler("read",self.read_book)
         # END команды администратора
         self.reg_handler("lsbook",self.ls_book)
         # END регистрация команд
@@ -120,14 +146,30 @@ class iReadLibTelegramBot:
         return BOOK
     
     def add_book_document(self,bot,update):
-        """
+        nameuser = update.message.from_user.username 
+        path_lib = "lib"
+        path_lib_user = path_lib+"/{0}".format(nameuser)
+        path_lib_user_file = path_lib_user+"/{0}-{1}".format(self.newbook[nameuser]["book"],self.newbook[nameuser]["author"])
+        path_lib_user_file_full = path_lib_user_file+"/{0}-{1}.txt".format(self.newbook[nameuser]["book"],self.newbook[nameuser]["author"])
+        if not os.path.exists(path_lib):
+            os.mkdir(path_lib)
+        if not os.path.exists(path_lib_user):
+            os.mkdir(path_lib_user)
+        
+        if os.path.exists(path_lib_user_file):
+            self.newbook[nameuser]=None
+            bot.send_message(chat_id=update.message.chat_id, text = "Название и автор книги существует. Загрузка книги прервана. Попробуйте снова с другим названием.")
+            return ConversationHandler.END
+        else:
+            os.mkdir(path_lib_user_file)
+
         file_id = update.message.document.file_id
-        filename = update.message.document.file_name
         newFile = bot.get_file(file_id)
-        newFile.download('files/savedoc/'+filename)
-        """
-        nameuser = update.message.from_user.username        
-        self.newbook[nameuser]["pathbook"] = "/home"
+        newFile.download(path_lib_user_file_full)
+
+        split_txt_file(path_lib_user_file_full, 20) # разбиваем книгу на страницы по 50 слов
+               
+        self.newbook[nameuser]["pathbook"] = path_lib_user_file
         db.add_book(nameuser, self.newbook[nameuser])
         self.newbook[nameuser]=None
         bot.send_message(chat_id=update.message.chat_id, text = "Книга загружена.")
@@ -141,17 +183,39 @@ class iReadLibTelegramBot:
         return ConversationHandler.END
     # END обработчики диалога addbook
 
-
+    # команды работы с книгами
     def ls_book(self, bot, update):
+        """
+            вывод доступных книг в библиотеке пользователя nameuser, возвращает кол-во книг в библиотеке 
+        """
         nameuser = update.message.from_user.username
         books = db.get_all_book(nameuser)
         if books == []:
             update.message.reply_text('Библиотека пуста.\nМожете добавить книгу командой /addbook')            
         else:
             result=""
+            i = 1
             for b in books:
-                result = result + b[0]+b[1]+"\n"
-            update.message.reply_text('Список книг текущего пользователя:\n{0}'.format(result))        
+                result = result +str(i)+". "+ b[0]+" - "+b[1]+"\n"
+                i = i + 1
+            update.message.reply_text('Список книг текущего пользователя:\n{0}'.format(result))      
+        return i-1
+
+    def read_book(self, bot, update):
+        """
+            чтение книги
+        """
+        kol_books = self.ls_book(bot, update)
+        if kol_books == 0:
+            update.message.reply_text("Чтение невозможно.")
+            return
+        keyboard = [[]]
+        for i in range(1, kol_books+1):
+            keyboard[0].append(InlineKeyboardButton(str(i), callback_data=str(i)))
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text('Выберите книгу...', reply_markup=reply_markup)
+      
+    # END команды работы с книгами
 
     # обработчики командов администратора
     @is_admin_user
@@ -168,10 +232,12 @@ class iReadLibTelegramBot:
     @is_allow_user   
     def ls_user(self,bot,update):
         all_user = db.get_all_username()
-        str=""
+        strs=""
+        i = 1
         for s in all_user:
-            str=str+s+"\n"
-        update.message.reply_text("Список всех пользователей: \n{}".format(str))
+            strs = strs + str(i)+" "+s+"\n"
+            i = i + 1
+        update.message.reply_text("Список всех пользователей: \n{}".format(strs))
 
     @is_admin_user
     @is_allow_user       
@@ -186,15 +252,6 @@ class iReadLibTelegramBot:
      # END обработчики командов администратора
 
         
-    """
-    # обработка получение документов от пользователя (сохранение в указанной папке)
-    def get_book_to_lib(self,bot,update):
-        file_id = update.message.document.file_id
-        filename = update.message.document.file_name
-        newFile = bot.get_file(file_id)
-        newFile.download('files/savedoc/'+filename)
-    """
-
     def reg_handler(self, command=None,hand=None,pass_args=False):
         """ регистрация команд которые обрабатывает бот """
         if (command is None) or (hand is None):
@@ -225,13 +282,13 @@ class iReadLibTelegramBot:
 
     def inlinebutton(self, bot, update):
         query = update.callback_query
-        
-        if format(query.data)=="about":
-            pass
-        else:
-            bot.edit_message_text(text="{}".format(query.data),
-                                chat_id=query.message.chat_id,
-                                message_id=query.message.message_id) 
+        number_book = query.data
+        nameuser = update.message.from_user.username
+        """
+        bot.edit_message_text(text="{}".format(query.data),
+                            chat_id=query.message.chat_id,
+                            message_id=query.message.message_id) 
+        """
 
     def error(bot, update, error):
         """Log Errors caused by Updates."""
@@ -243,8 +300,8 @@ class iReadLibTelegramBot:
         self.bot.start_polling()
         self.bot.idle()
 
-        
 
-cfg = Config("config.ini")
-tgbot = iReadLibTelegramBot(cfg.token,logging.DEBUG)
-tgbot.run()
+if __name__=="__main__":
+    cfg = Config("config.ini")
+    tgbot = iReadLibTelegramBot(cfg.token,logging.DEBUG)
+    tgbot.run()

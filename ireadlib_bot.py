@@ -201,6 +201,7 @@ class iReadLibTelegramBot:
             update.message.reply_text('Список книг текущего пользователя:\n{0}'.format(result))      
         return i-1
 
+    @is_allow_user
     def read_book(self, bot, update):
         """
             чтение книги

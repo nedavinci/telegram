@@ -15,7 +15,7 @@ class DbLib:
             self.c.execute('''CREATE TABLE users
                         (id integer, nameuser text, role text)''')
             self.c.execute('''CREATE TABLE books
-                        (id integer, author text, namebook text, pathbook text, currentpage integer, description text)''')
+                        (id integer, idbook integer, author text, namebook text, pathbook text, currentpage integer, description text, active integer)''')
         else:
             self.conn = sqlite3.connect(namefile, check_same_thread=False)
             self.c = self.conn.cursor()
@@ -123,11 +123,21 @@ class DbLib:
             добавляем книгу пользователю nameuser. 
             book - это словарь с ключами namebook(название книги) , pathbook(путь до книги на диске) ,currentpage (текущая страница),  author - автор книги
         """
+
+        self.c.execute("SELECT MAX(idbook) FROM books")
+        # Получаем результат сделанного запроса
+        idbook = self.c.fetchall()
+        #print(id[0][0])
+        if idbook[0][0] is None:
+            idbook = 1
+        else:
+            idbook = int(idbook[0][0])+1
+
         id = self.get_id_user(nameuser)
         if id is None:
             return False
-        str = "INSERT INTO books (id, author, namebook, pathbook, currentpage, description) VALUES ({0},'{1}','{2}','{3}',{4},'{5}')".format(id,book["author"],book["book"],book["pathbook"],book["currentpage"],book["description"])
-        #git add print(str)
+        str = "INSERT INTO books (id, author, namebook, pathbook, currentpage, description, idbook, active) VALUES ({0},'{1}','{2}','{3}',{4},'{5}',{6},'{7}')".format(id,book["author"],book["book"],book["pathbook"],book["currentpage"],book["description"],idbook,0)
+        print(str)
         self.c.execute(str)
         self.conn.commit()
         

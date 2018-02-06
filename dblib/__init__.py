@@ -113,7 +113,7 @@ class DbLib:
         id_user = self.get_id_user(nameuser)
         if id_user is None:
             return result
-        str_command = "SELECT namebook, author  FROM books WHERE id={0}".format(id_user)
+        str_command = "SELECT idbook, namebook, author  FROM books WHERE id={0}".format(id_user)
         self.c.execute(str_command)
         result = self.c.fetchall()
         return result

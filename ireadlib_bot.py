@@ -190,29 +190,31 @@ class iReadLibTelegramBot:
         """
         nameuser = update.message.from_user.username
         books = db.get_all_book(nameuser)
+        id_books = []
         if books == []:
             update.message.reply_text('Библиотека пуста.\nМожете добавить книгу командой /addbook')            
         else:
             result=""
             i = 1
             for b in books:
-                result = result +str(i)+". "+ b[0]+" - "+b[1]+"\n"
+                result = result +str(b[0])+". "+ b[1]+" - "+b[2]+"\n"
+                id_books.append(b[0])
                 i = i + 1
             update.message.reply_text('Список книг текущего пользователя:\n{0}'.format(result))      
-        return i-1
+        return id_books
 
     @is_allow_user
     def read_book(self, bot, update):
         """
             чтение книги
         """
-        kol_books = self.ls_book(bot, update)
-        if kol_books == 0:
+        id_books = self.ls_book(bot, update)
+        if len(id_books) == 0:
             update.message.reply_text("Чтение невозможно.")
             return
         keyboard = [[]]
-        for i in range(1, kol_books+1):
-            keyboard[0].append(InlineKeyboardButton(str(i), callback_data=str(i)))
+        for id_book in id_books:
+            keyboard[0].append(InlineKeyboardButton(str(id_book), callback_data=str(id_book)))
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text('Выберите книгу...', reply_markup=reply_markup)
       
@@ -267,12 +269,6 @@ class iReadLibTelegramBot:
 
     @is_allow_user
     def start(self, bot, update):
-        """
-        keyboard = [[InlineKeyboardButton("Help", callback_data="about_bot"),
-                 InlineKeyboardButton("Settings", callback_data='settings')],
-                [InlineKeyboardButton("Яndex", url='http://ya.ru')]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        """
         update.message.reply_text('Добро пожаловать, {}! Я бот который поможет вам вести свою библиотеку и позволит вам читать книги. '.format(update.message.from_user.first_name)) #, reply_markup=reply_markup)
         
 
@@ -284,12 +280,12 @@ class iReadLibTelegramBot:
     def inlinebutton(self, bot, update):
         query = update.callback_query
         number_book = query.data
-        nameuser = update.message.from_user.username
-        """
+        #nameuser = update.message.from_user.username
+        
         bot.edit_message_text(text="{}".format(query.data),
                             chat_id=query.message.chat_id,
                             message_id=query.message.message_id) 
-        """
+        
 
     def error(bot, update, error):
         """Log Errors caused by Updates."""

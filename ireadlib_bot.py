@@ -1,5 +1,5 @@
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup,ReplyKeyboardMarkup
 from config import Config
 import logging
 import os
@@ -76,7 +76,8 @@ add_admin_user(db,admin_users)
 allow_users = db.get_all_username()
 # --- END Подготовительные работы с БД
 
-NAMEBOOK, AUTHORBOOK, BOOK = range(3)
+
+NAMEBOOK, AUTHORBOOK, BOOK, FORWARD, BACKWARD = range(5)
 
 class iReadLibTelegramBot:
 
@@ -86,6 +87,9 @@ class iReadLibTelegramBot:
         self.bot = Updater(token)
 
         self.newbook = dict()  # промежуточные данные для добавления книги
+
+        self.read_keyboard = [['<<Назад', 'Вперёд>>'], ['Завершить чтение']]
+        self.readbook_markup = InlineKeyboardMarkup(read_keyboard)
 
         # добавление handler диалога на добавление книги в библиотеку
         conv_handler_addbook = ConversationHandler(
@@ -98,6 +102,16 @@ class iReadLibTelegramBot:
             fallbacks=[CommandHandler('cancel', self.cancel)]
         )
        
+       conv_handler_readbook = ConversationHandler(
+            entry_points=[CommandHandler('readbook', self.read_book)],
+            states={
+                FORWARD: [MessageHandler(Filters.text, self.read_forward_book)],
+                BACKWARD: [MessageHandler(Filters.document, self.read_backward_book)],
+            },
+            fallbacks=[CommandHandler('cancelread', self.cancel_read)]
+        )
+
+
         # обработка добавления книг в библиотеку
         #handlerDocument = MessageHandler(filters = Filters.document, callback=self.get_book_to_lib)
         #self.bot.dispatcher.add_handler(handlerDocument)
@@ -109,6 +123,7 @@ class iReadLibTelegramBot:
         self.bot.dispatcher.add_handler(CallbackQueryHandler(self.inlinebutton))   
         # регистрация диалоговых обработчиков
         self.bot.dispatcher.add_handler(conv_handler_addbook)
+        self.bot.dispatcher.add_handler(conv_handler_readbook)
         # регистрация команд     
         self.reg_handler("start",self.start)
         self.reg_handler("help",self.about)
@@ -121,6 +136,23 @@ class iReadLibTelegramBot:
         self.reg_handler("lsbook",self.ls_book)
         # END регистрация команд
 
+    # обработчики диалога readbook - чтение книги
+    def read_forward_book(self,bot,update, **args):
+        str_book = 'Страница \n Содержимое книги - read_forward_book'
+        #keyboard[0].append(InlineKeyboardButton(str(id_book), callback_data=str(id_book)))
+        update.message.reply_text(str_book, reply_markup=self.readbook_markup)
+
+    
+    def read_backward_book(self,bot,update, **args):
+        str_book = 'Страница \n Содержимое книги - read_backward_book'
+        update.message.reply_text(str_book, reply_markup=self.readbook_markup)
+
+    def cancel_read(self, bot, update):
+        nameuser = update.message.from_user.username
+        update.message.reply_text('Вы прервали чтение книги.')
+        return ConversationHandler.END
+    
+    # обработчики диалога readbook - чтение книги
 
     # обработчики диалога addbook
     @is_allow_user
@@ -280,7 +312,6 @@ class iReadLibTelegramBot:
     def inlinebutton(self, bot, update):
         query = update.callback_query
         number_book = query.data
-        #nameuser = update.message.from_user.username
         
         bot.edit_message_text(text="{}".format(query.data),
                             chat_id=query.message.chat_id,

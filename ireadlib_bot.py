@@ -146,7 +146,8 @@ class iReadLibTelegramBot:
         return READ
 
     def read_book(self,bot,update, **args):
-        print("ФУНКЦИЯ read_book ")
+        #print("ФУНКЦИЯ read_book ")
+        nameuser = update.message.from_user.username
         #query = update.callback_query
         read_keyboard = [['Назад', 'Вперёд'], ['Завершить чтение']]
         readbook_markup = ReplyKeyboardMarkup(read_keyboard, one_time_keyboard=True)
@@ -155,27 +156,32 @@ class iReadLibTelegramBot:
         if txt_message == "Назад":
             update.message.reply_text("Назад", reply_markup=readbook_markup)    
             return READ
+
         if txt_message == "Вперёд":
             update.message.reply_text("Вперёд", reply_markup=readbook_markup)    
             return READ
 
         if txt_message == "Завершить чтение":
+            db.set_noactive_book(nameuser)        
             reply_markup = ReplyKeyboardRemove()
             update.message.reply_text('Вы прервали чтение книги.', reply_markup=reply_markup)
-            return ConversationHandler.END    
-        if txt_message.isdigit():
-            update.message.reply_text('Вы выбрали книгу {} .'.format(txt_message), reply_markup=readbook_markup)
-            return READ 
+            return ConversationHandler.END   
 
+        if txt_message.isdigit():
+            books = db.get_all_book(nameuser)
+            for b in books:
+                if b[0]==int(txt_message):
+                    update.message.reply_text('Вы выбрали книгу {} .'.format(txt_message), reply_markup=readbook_markup)
+                    db.set_active_book(int(txt_message))
+                    return READ 
+            reply_markup = ReplyKeyboardRemove()
+            update.message.reply_text('Книги нет.', reply_markup=reply_markup)
+            return ConversationHandler.END
         return READ       
-        """    
-        str_book = 'Страница \n Содержимое книги - read_forward_book'
-        #keyboard[0].append(InlineKeyboardButton(str(id_book), callback_data=str(id_book)))
-        update.message.reply_text(str_book, reply_markup=self.readbook_markup)
-        """
 
     def cancel_read(self, bot, update):
         nameuser = update.message.from_user.username
+        db.set_noactive_book(nameuser)        
         reply_markup = ReplyKeyboardRemove()
         update.message.reply_text('Вы прервали чтение книги.', reply_markup=reply_markup)
         return ConversationHandler.END

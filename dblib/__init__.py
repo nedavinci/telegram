@@ -105,6 +105,39 @@ class DbLib:
     # END методы для работы с таблицей User
 
     # методы для работы с таблицей Books
+    def set_active_book(self, idbook):
+        """
+            устанавливаем статус активности (идет процесс чтения)
+        """
+        command = "UPDATE books SET active='1' WHERE idbook={0}".format(idbook)
+        print(command)
+        self.c.execute(command)
+        self.conn.commit()  
+        return True      
+        
+    def set_noactive_book(self,  idbook):
+        """
+            убираем статус активности (идет процесс чтения)
+        """
+        command = "UPDATE books SET active='0' WHERE idbook={0}".format(idbook)
+        print(command)
+        self.c.execute(command)
+        self.conn.commit()  
+        return True  
+
+    def set_noactive_book(self, nameuser):
+        """
+            убираем статус активности (идет процесс чтения)
+        """
+        id_user = self.get_id_user(nameuser)
+        if id_user is None:
+            return result
+        command = "UPDATE books SET active='0' WHERE id={0}".format(id_user)
+        print(command)
+        self.c.execute(command)
+        self.conn.commit()  
+        return True  
+
     def get_all_book(self, nameuser):
         """
             получение списка книг пользователя nameuser

@@ -152,13 +152,23 @@ class iReadLibTelegramBot:
         read_keyboard = [['Назад', 'Вперёд'], ['Завершить чтение']]
         readbook_markup = ReplyKeyboardMarkup(read_keyboard, one_time_keyboard=True)
         txt_message = update.message.text
-        print("ВВедённые данные:", txt_message)
+        #print("ВВедённые данные:", txt_message)
         if txt_message == "Назад":
-            update.message.reply_text("Назад", reply_markup=readbook_markup)    
+            current_page = db.get_currentpage_in_active_book(nameuser)
+            current_page = current_page - 1
+            if current_page < 0:
+                current_page = 0
+            # здесь нужно вставить проверку на корректность страницы, не превышает ли она максимальную
+            db.set_currentpage_in_active_book(nameuser, current_page)
+            update.message.reply_text("Текущая страница: {0}".format(current_page), reply_markup=readbook_markup)    
             return READ
 
         if txt_message == "Вперёд":
-            update.message.reply_text("Вперёд", reply_markup=readbook_markup)    
+            current_page = db.get_currentpage_in_active_book(nameuser)
+            current_page = current_page + 1
+            # здесь нужно вставить проверку на корректность страницы, не превышает ли она максимальную
+            db.set_currentpage_in_active_book(nameuser, current_page)
+            update.message.reply_text("Текущая страница: {0}".format(current_page), reply_markup=readbook_markup)    
             return READ
 
         if txt_message == "Завершить чтение":
@@ -171,8 +181,9 @@ class iReadLibTelegramBot:
             books = db.get_all_book(nameuser)
             for b in books:
                 if b[0]==int(txt_message):
-                    update.message.reply_text('Вы выбрали книгу {} .'.format(txt_message), reply_markup=readbook_markup)
                     db.set_active_book(int(txt_message))
+                    current_page = db.get_currentpage_in_active_book(nameuser)
+                    update.message.reply_text('Вы выбрали книгу {0}. Текущая страница {1} .'.format(txt_message, current_page), reply_markup=readbook_markup)
                     return READ 
             reply_markup = ReplyKeyboardRemove()
             update.message.reply_text('Книги нет.', reply_markup=reply_markup)

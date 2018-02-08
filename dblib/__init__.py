@@ -133,10 +133,40 @@ class DbLib:
         if id_user is None:
             return result
         command = "UPDATE books SET active='0' WHERE id={0}".format(id_user)
-        print(command)
+        #print(command)
         self.c.execute(command)
         self.conn.commit()  
         return True  
+
+    def get_currentpage_in_active_book(self, nameuser):
+        """
+            получение номера страницы текущей книги у пользователя nameuser
+        """
+        current_page = None
+
+        id_user = self.get_id_user(nameuser)
+        if id_user is None:
+            return current_page
+
+        command = "SELECT currentpage FROM books WHERE (id={0}) AND (active=1)".format(id_user)
+        self.c.execute(command)
+        current_page = self.c.fetchone() 
+        if current_page is None:
+            return current_page    
+        return current_page[0]
+
+    def set_currentpage_in_active_book(self, nameuser, current_page=0):
+        """
+            устанавливаем номер страницы current_page у пользователя nameuser активной книги
+        """
+        id_user = self.get_id_user(nameuser)
+        if id_user is None:
+            return 
+
+        command = "UPDATE books SET currentpage={0} WHERE (id={1}) AND (active=1)".format(current_page, id_user)
+        self.c.execute(command)
+        self.conn.commit()  
+        return 
 
     def get_all_book(self, nameuser):
         """

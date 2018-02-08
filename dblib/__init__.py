@@ -151,9 +151,21 @@ class DbLib:
         command = "SELECT currentpage FROM books WHERE (id={0}) AND (active=1)".format(id_user)
         self.c.execute(command)
         current_page = self.c.fetchone() 
-        if current_page is None:
+        if current_page[0] is None:
             return current_page    
         return current_page[0]
+
+    def get_path_active_book(self, nameuser):
+        """
+            получаем путь где  находится  текущая книга пользователя nameuser
+        """
+        id_user = self.get_id_user(nameuser)
+        if id_user is None:
+            return None
+        command = "SELECT pathbook FROM books WHERE (id={0}) AND (active=1)".format(id_user)
+        self.c.execute(command)
+        path_book = self.c.fetchone() 
+        return path_book[0]      
 
     def set_currentpage_in_active_book(self, nameuser, current_page=0):
         """

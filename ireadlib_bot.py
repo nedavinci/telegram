@@ -28,6 +28,21 @@ def split_txt_file(filename, kol_slov):
             else:
                 buffer = buffer + line
                 kol_strok = kol_strok + 1
+    return
+
+def get_file(namefile):
+    """
+        получение содержимого файла, если файла нет, то возвращается None
+    """
+    result = None
+    if not os.path.exists(namefile):
+        return result
+    with open(namefile,"r") as f:
+        result = f.read()
+    return result
+
+
+    
 #---- END сервисные функции
 
 
@@ -156,19 +171,25 @@ class iReadLibTelegramBot:
         if txt_message == "Назад":
             current_page = db.get_currentpage_in_active_book(nameuser)
             current_page = current_page - 1
-            if current_page < 0:
-                current_page = 0
+            if current_page <= 0:
+                current_page = 1
             # здесь нужно вставить проверку на корректность страницы, не превышает ли она максимальную
             db.set_currentpage_in_active_book(nameuser, current_page)
-            update.message.reply_text("Текущая страница: {0}".format(current_page), reply_markup=readbook_markup)    
+            book = self.get_book_currentpage(nameuser, current_page)
+            update.message.reply_text("Текущая страница: {0}\n{1}".format(current_page, book), reply_markup=readbook_markup)
             return READ
 
         if txt_message == "Вперёд":
             current_page = db.get_currentpage_in_active_book(nameuser)
             current_page = current_page + 1
-            # здесь нужно вставить проверку на корректность страницы, не превышает ли она максимальную
-            db.set_currentpage_in_active_book(nameuser, current_page)
-            update.message.reply_text("Текущая страница: {0}".format(current_page), reply_markup=readbook_markup)    
+            book = self.get_book_currentpage(nameuser, current_page)
+            if book is not None:
+                db.set_currentpage_in_active_book(nameuser, current_page)
+            else:
+                current_page = current_page - 1
+                book = self.get_book_currentpage(nameuser, current_page)
+                db.set_currentpage_in_active_book(nameuser, current_page)
+            update.message.reply_text("Текущая страница: {0}\n{1}".format(current_page, book), reply_markup=readbook_markup)    
             return READ
 
         if txt_message == "Завершить чтение":
@@ -183,7 +204,16 @@ class iReadLibTelegramBot:
                 if b[0]==int(txt_message):
                     db.set_active_book(int(txt_message))
                     current_page = db.get_currentpage_in_active_book(nameuser)
-                    update.message.reply_text('Вы выбрали книгу {0}. Текущая страница {1} .'.format(txt_message, current_page), reply_markup=readbook_markup)
+                    if current_page <= 0:
+                        current_page = 1
+                    book = self.get_book_currentpage(nameuser, current_page)
+                    if book is not None:
+                        db.set_currentpage_in_active_book(nameuser, current_page)
+                    else:
+                        current_page = current_page - 1
+                        book = self.get_book_currentpage(nameuser, current_page)
+                        db.set_currentpage_in_active_book(nameuser, current_page)
+                    update.message.reply_text("Текущая страница: {0}\n{1}".format(current_page, book), reply_markup=readbook_markup)    
                     return READ 
             reply_markup = ReplyKeyboardRemove()
             update.message.reply_text('Книги нет.', reply_markup=reply_markup)
@@ -197,6 +227,8 @@ class iReadLibTelegramBot:
         update.message.reply_text('Вы прервали чтение книги.', reply_markup=reply_markup)
         return ConversationHandler.END
     
+
+
     # обработчики диалога readbook - чтение книги
 
     # обработчики диалога addbook
@@ -208,7 +240,7 @@ class iReadLibTelegramBot:
     def add_namebook(self,bot,update):
         nameuser = update.message.from_user.username
         namebook = update.message.text  
-        book ={"author":"","book": "", "pathbook":"","currentpage":0,"description":""}
+        book ={"author":"","book": "", "pathbook":"","currentpage":1,"description":""}
         book["book"] = namebook
         self.newbook[nameuser] =  book        
         bot.send_message(chat_id=update.message.chat_id, text = "Введите автора книги.\n/cancel - отмена операции.")
@@ -217,7 +249,6 @@ class iReadLibTelegramBot:
     def add_author(self,bot,update):
         nameuser = update.message.from_user.username
         authorbook = update.message.text  
-        #book ={"author":"","book": "", "pathbook":"","currentpage":0,"description":""}        
         self.newbook[nameuser]["author"] = authorbook
         bot.send_message(chat_id=update.message.chat_id, text = "Загрузите книгу.\n/cancel - отмена операции.")
         return BOOK
@@ -351,6 +382,12 @@ class iReadLibTelegramBot:
         # передать информацию о том какую книгу читаю
         return READ
         
+    def get_book_currentpage(self, nameuser, current_page):
+        #nameuser = update.message.from_user.username 
+        path_book = db.get_path_active_book(nameuser)
+        path_book_full = path_book +"/{0}.txt".format(current_page)
+        result = get_file(path_book_full)
+        return result
 
     def error(bot, update, error):
         """Log Errors caused by Updates."""

@@ -1,5 +1,5 @@
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup,ReplyKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, RegexHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from config import Config
 import logging
 import os
@@ -77,7 +77,7 @@ allow_users = db.get_all_username()
 # --- END Подготовительные работы с БД
 
 
-NAMEBOOK, AUTHORBOOK, BOOK, FORWARD, BACKWARD = range(5)
+NAMEBOOK, AUTHORBOOK, BOOK, READ = range(4)
 
 class iReadLibTelegramBot:
 
@@ -87,9 +87,6 @@ class iReadLibTelegramBot:
         self.bot = Updater(token)
 
         self.newbook = dict()  # промежуточные данные для добавления книги
-
-        self.read_keyboard = [['<<Назад', 'Вперёд>>'], ['Завершить чтение']]
-        self.readbook_markup = InlineKeyboardMarkup(read_keyboard)
 
         # добавление handler диалога на добавление книги в библиотеку
         conv_handler_addbook = ConversationHandler(
@@ -102,15 +99,13 @@ class iReadLibTelegramBot:
             fallbacks=[CommandHandler('cancel', self.cancel)]
         )
        
-       conv_handler_readbook = ConversationHandler(
-            entry_points=[CommandHandler('readbook', self.read_book)],
+        conv_handler_readbook = ConversationHandler(
+            entry_points=[CommandHandler('read', self.choose_book)],
             states={
-                FORWARD: [MessageHandler(Filters.text, self.read_forward_book)],
-                BACKWARD: [MessageHandler(Filters.document, self.read_backward_book)],
+                READ: [MessageHandler(Filters.text, self.read_book)]
             },
             fallbacks=[CommandHandler('cancelread', self.cancel_read)]
         )
-
 
         # обработка добавления книг в библиотеку
         #handlerDocument = MessageHandler(filters = Filters.document, callback=self.get_book_to_lib)
@@ -131,25 +126,58 @@ class iReadLibTelegramBot:
         self.reg_handler("adduser",self.add_user, True)
         self.reg_handler("lsuser",self.ls_user)
         self.reg_handler("deluser",self.del_user, True)
-        self.reg_handler("read",self.read_book)
+        #self.reg_handler("read",self.choose_book)
         # END команды администратора
         self.reg_handler("lsbook",self.ls_book)
         # END регистрация команд
 
     # обработчики диалога readbook - чтение книги
-    def read_forward_book(self,bot,update, **args):
+    @is_allow_user
+    def choose_book(self, bot, update):
+        """
+            чтение книги
+        """
+        id_books = self.ls_book(bot, update)
+        if len(id_books) == 0:
+            update.message.reply_text("Чтение невозможно.")
+            return ConversationHandler.END
+        
+        update.message.reply_text('Выберите книгу..') #, reply_markup=reply_markup)
+        return READ
+
+    def read_book(self,bot,update, **args):
+        print("ФУНКЦИЯ read_book ")
+        #query = update.callback_query
+        read_keyboard = [['Назад', 'Вперёд'], ['Завершить чтение']]
+        readbook_markup = ReplyKeyboardMarkup(read_keyboard, one_time_keyboard=True)
+        txt_message = update.message.text
+        print("ВВедённые данные:", txt_message)
+        if txt_message == "Назад":
+            update.message.reply_text("Назад", reply_markup=readbook_markup)    
+            return READ
+        if txt_message == "Вперёд":
+            update.message.reply_text("Вперёд", reply_markup=readbook_markup)    
+            return READ
+
+        if txt_message == "Завершить чтение":
+            reply_markup = ReplyKeyboardRemove()
+            update.message.reply_text('Вы прервали чтение книги.', reply_markup=reply_markup)
+            return ConversationHandler.END    
+        if txt_message.isdigit():
+            update.message.reply_text('Вы выбрали книгу {} .'.format(txt_message), reply_markup=readbook_markup)
+            return READ 
+
+        return READ       
+        """    
         str_book = 'Страница \n Содержимое книги - read_forward_book'
         #keyboard[0].append(InlineKeyboardButton(str(id_book), callback_data=str(id_book)))
         update.message.reply_text(str_book, reply_markup=self.readbook_markup)
-
-    
-    def read_backward_book(self,bot,update, **args):
-        str_book = 'Страница \n Содержимое книги - read_backward_book'
-        update.message.reply_text(str_book, reply_markup=self.readbook_markup)
+        """
 
     def cancel_read(self, bot, update):
         nameuser = update.message.from_user.username
-        update.message.reply_text('Вы прервали чтение книги.')
+        reply_markup = ReplyKeyboardRemove()
+        update.message.reply_text('Вы прервали чтение книги.', reply_markup=reply_markup)
         return ConversationHandler.END
     
     # обработчики диалога readbook - чтение книги
@@ -235,21 +263,7 @@ class iReadLibTelegramBot:
             update.message.reply_text('Список книг текущего пользователя:\n{0}'.format(result))      
         return id_books
 
-    @is_allow_user
-    def read_book(self, bot, update):
-        """
-            чтение книги
-        """
-        id_books = self.ls_book(bot, update)
-        if len(id_books) == 0:
-            update.message.reply_text("Чтение невозможно.")
-            return
-        keyboard = [[]]
-        for id_book in id_books:
-            keyboard[0].append(InlineKeyboardButton(str(id_book), callback_data=str(id_book)))
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_text('Выберите книгу...', reply_markup=reply_markup)
-      
+     
     # END команды работы с книгами
 
     # обработчики командов администратора
@@ -301,7 +315,8 @@ class iReadLibTelegramBot:
 
     @is_allow_user
     def start(self, bot, update):
-        update.message.reply_text('Добро пожаловать, {}! Я бот который поможет вам вести свою библиотеку и позволит вам читать книги. '.format(update.message.from_user.first_name)) #, reply_markup=reply_markup)
+        reply_markup = ReplyKeyboardRemove()
+        update.message.reply_text('Добро пожаловать, {}! Я бот который поможет вам вести свою библиотеку и позволит вам читать книги. '.format(update.message.from_user.first_name), reply_markup=reply_markup)
         
 
     def docs(self, bot, update):
@@ -316,6 +331,8 @@ class iReadLibTelegramBot:
         bot.edit_message_text(text="{}".format(query.data),
                             chat_id=query.message.chat_id,
                             message_id=query.message.message_id) 
+        # передать информацию о том какую книгу читаю
+        return READ
         
 
     def error(bot, update, error):
